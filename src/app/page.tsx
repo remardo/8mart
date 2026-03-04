@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import photosData from '../data/photos.json';
 
 interface PhotoInfo {
   folder: string;
@@ -12,28 +13,15 @@ interface Votes {
 }
 
 export default function Home() {
-  const [photos, setPhotos] = useState<PhotoInfo[]>([]);
+  const [photos, setPhotos] = useState<PhotoInfo[]>(photosData);
   const [votes, setVotes] = useState<Votes>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ folder: string; photo: string } | null>(null);
 
   useEffect(() => {
-    fetchPhotos();
     fetchVotes();
   }, []);
-
-  const fetchPhotos = async () => {
-    try {
-      const res = await fetch('/api/photos');
-      const data = await res.json();
-      setPhotos(data);
-    } catch (error) {
-      console.error('Failed to fetch photos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchVotes = async () => {
     try {
