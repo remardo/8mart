@@ -1,5 +1,6 @@
-import { kv } from '@vercel/kv';
 import { NextRequest, NextResponse } from 'next/server';
+
+const votes: Record<string, number> = {};
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,8 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing photoId or vote' }, { status: 400 });
     }
 
-    const votesKey = `votes:${photoId}`;
-    const currentVotes = await kv.get<number>(votesKey) || 0;
+    const currentVotes = votes[photoId] || 0;
     
     let newVotes: number;
     if (vote === true) {
@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       newVotes = currentVotes;
     }
     
-    await kv.set(votesKey, newVotes);
+    votes[photoId] = newVotes;
+    
+    console.log('Vote:', photoId, vote, '->', newVotes);
     
     return NextResponse.json({ success: true, votes: newVotes });
   } catch (error) {
@@ -32,18 +34,5 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  try {
-    const keys = await kv.keys('votes:*');
-    const votes: Record<string, number> = {};
-    
-    for (const key of keys) {
-      const photoId = key.replace('votes:', '');
-      votes[photoId] = await kv.get<number>(key) || 0;
-    }
-    
-    return NextResponse.json(votes);
-  } catch (error) {
-    console.error('Get votes error:', error);
-    return NextResponse.json({ error: 'Failed to get votes' }, { status: 500 });
-  }
+  return NextResponse.json(votes);
 }
