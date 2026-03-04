@@ -1,8 +1,15 @@
+import Redis from 'ioredis';
 import { NextRequest, NextResponse } from 'next/server';
 
-const votes: Record<string, number> = {};
+const redis = process.env.REDIS_URL 
+  ? new Redis(process.env.REDIS_URL)
+  : null;
 
 export async function POST(request: NextRequest) {
+  if (!redis) {
+    return NextResponse.json({ error: 'Redis not configured' }, { status: 500 });
+  }
+
   try {
     const body = await request.json();
     const { photoId, vote } = body;
@@ -11,7 +18,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing photoId or vote' }, { status: 400 });
     }
 
-    const currentVotes = votes[photoId] || 0;
+    const votesKey = `votes:${photoId}`;
+    const currentVotes = parseInt(await redis.get(votesKey) || '0', 10);
     
     let newVotes: number;
     if (vote === true) {
@@ -22,9 +30,7 @@ export async function POST(request: NextRequest) {
       newVotes = currentVotes;
     }
     
-    votes[photoId] = newVotes;
-    
-    console.log('Vote:', photoId, vote, '->', newVotes);
+    await redis.set(votesKey, newVotes.toString());
     
     return NextResponse.json({ success: true, votes: newVotes });
   } catch (error) {
@@ -34,5 +40,22 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json(votes);
+  if (!redis) {
+    return NextResponse.json({ error: 'Redis not configured' }, { status: 500 });
+  }
+
+  try {
+    const keys = await redis.keys('votes:*');
+    const votes: Record<string, number> = {};
+    
+    for (const key of keys) {
+      const photoId = key.replace('votes:', '');
+      votes[photoId] = parseInt(await redis.get(key) || '0', 10);
+    }
+    
+    return NextResponse.json(votes);
+  } catch (error) {
+    console.error('Get votes error:', error);
+    return NextResponse.json({ error: 'Failed to get votes' }, { status: 500 });
+  }
 }
