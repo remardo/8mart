@@ -15,6 +15,7 @@ interface Votes {
 export default function Home() {
   const [photos, setPhotos] = useState<PhotoInfo[]>(photosData);
   const [votes, setVotes] = useState<Votes>({});
+  const [userVotes, setUserVotes] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<{ folder: string; photo: string } | null>(null);
@@ -27,7 +28,12 @@ export default function Home() {
     try {
       const res = await fetch('/api/votes');
       const data = await res.json();
-      setVotes(data);
+      if (!res.ok) {
+        console.error('Failed to fetch votes:', data.error);
+        return;
+      }
+      setVotes(data.votes || {});
+      setUserVotes(data.userVotes || {});
     } catch (error) {
       console.error('Failed to fetch votes:', error);
     }
@@ -35,11 +41,16 @@ export default function Home() {
 
   const handleVote = async (photoId: string, vote: boolean) => {
     try {
-      await fetch('/api/votes', {
+      const res = await fetch('/api/votes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoId, vote }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('Vote failed:', data.error);
+        return;
+      }
       fetchVotes();
     } catch (error) {
       console.error('Failed to vote:', error);
@@ -128,7 +139,7 @@ export default function Home() {
                           <div className="flex items-center justify-between gap-2 mt-auto">
                             <button
                               onClick={() => handleVote(photoId, false)}
-                              className="flex-1 px-3 py-2 bg-red-100 text-red-600 font-medium rounded-lg hover:bg-red-200 transition-colors text-sm"
+                              className={`flex-1 px-3 py-2 font-medium rounded-lg transition-colors text-sm ${userVotes[photoId] === false ? 'bg-red-500 text-white shadow-inner' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
                             >
                               ✗ Нет
                             </button>
@@ -137,7 +148,7 @@ export default function Home() {
                             </span>
                             <button
                               onClick={() => handleVote(photoId, true)}
-                              className="flex-1 px-3 py-2 bg-green-100 text-green-600 font-medium rounded-lg hover:bg-green-200 transition-colors text-sm"
+                              className={`flex-1 px-3 py-2 font-medium rounded-lg transition-colors text-sm ${userVotes[photoId] === true ? 'bg-green-500 text-white shadow-inner' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
                             >
                               ✓ Да
                             </button>
@@ -158,7 +169,7 @@ export default function Home() {
       </footer>
 
       {selectedPhoto && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 cursor-zoom-out"
           onClick={() => setSelectedPhoto(null)}
         >
